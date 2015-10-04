@@ -102,8 +102,8 @@ void EuclideanLossHeatmapLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& b
         // Plot visualisation
         if (visualise)
         {
-            DLOG(INFO) << "num_images=" << num_images << " idx_img=" << idx_img;
-            DLOG(INFO) << "sum bottom: " << cv::sum(bottom_img) << "  sum gt: " << cv::sum(gt_img);
+//            DLOG(INFO) << "num_images=" << num_images << " idx_img=" << idx_img;
+//            DLOG(INFO) << "sum bottom: " << cv::sum(bottom_img) << "  sum gt: " << cv::sum(gt_img);
             int visualisation_size = 256;
             cv::Size size(visualisation_size, visualisation_size);            
             std::vector<cv::Point> points;
