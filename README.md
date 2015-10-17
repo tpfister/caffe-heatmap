@@ -43,6 +43,10 @@ To start training:
 - Ensure that the cropsize is set so that the crop normally covers most of the positions in the image that you wish to regress. E.g. for FLIC we prepared 256x256 cropped input images around the torso point.
 
 
+## Pretrained models
+To follow shortly.
+
+
 ## Paper
 Please cite our [ICCV'15 paper](http://www.robots.ox.ac.uk/~vgg/publications/2015/Pfister15a/pfister15a.pdf) in your publications if this code helps your research:
 
