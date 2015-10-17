@@ -18,10 +18,10 @@ To start training:
 - Start training: sh train_heatmap.sh heatmap-flic-fusion 1
 
 
-## Supported augmentations:
+## Supported augmentations
 - Random crop, resize, mirror and rotation
 
-## Heatmap params:
+## Heatmap params
 - visualise: show visualisations for crops, rotations etc (recommended for testing)
 - source: label file
 - root_img_dir: directory with images (recommend you store images on ramdisk)
@@ -34,14 +34,24 @@ To start training:
 - segmentation: segment images on the fly (assumes images are in a segs/ directory)
 - angle_max: max rotation angle for training augmentation
 
-### Pose estimation-specific parameters:
+### Pose estimation-specific parameters
 - flip_joint_labels: when horizontally flipping images for augmentation, if this is set to true the code also swaps left<->right labels (this is important e.g. for observer-centric pose estimation). This assumes that the left,right joint labelsare listed consecutively (e.g. wrist_left,wrist_right,elbow_left,elbow_right)
 - dont_flip_first: This option allows you to turn off label mirroring for the first label. E.g. for labels head,wrist_right,wrist_left,elbow_right,elbow_left,shoulder_right,shoulder_left, the first joint is head and should not be swapped with wrist_right.
 
 
-## Notes:
+## Notes
 - Ensure that the cropsize is set so that the crop normally covers most of the positions in the image that you wish to regress. E.g. for FLIC we prepared 256x256 cropped input images around the torso point.
 
+
+## Paper
+Please cite our [ICCV'15 paper](http://www.robots.ox.ac.uk/~vgg/publications/2015/Pfister15a/pfister15a.pdf) in your publications if this code helps your research:
+
+      @InProceedings{Pfister15a,
+        author       = "Pfister, T. and Charles, J. and Zisserman, A.",
+        title        = "Flowing ConvNets for Human Pose Estimation in Videos",
+        booktitle    = "IEEE International Conference on Computer Vision",
+        year         = "2015",
+      }
 
 
 
