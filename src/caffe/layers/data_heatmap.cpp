@@ -49,7 +49,7 @@ void DataHeatmapLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
     const int outsize = heatmap_data_param.outsize();
     const int label_batchsize = batchsize;
     sample_per_cluster_ = heatmap_data_param.sample_per_cluster();
-    root_img_dir_ = heatmap_data_param.root_img_dir();    
+    root_img_dir_ = heatmap_data_param.root_img_dir();
 
 
     // initialise rng seed
@@ -242,7 +242,7 @@ void DataHeatmapLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
 
     // init data
-    this->transformed_data_.Reshape(batchsize, this->datum_channels_, outsize, outsize);    
+    this->transformed_data_.Reshape(batchsize, this->datum_channels_, outsize, outsize);
     top[0]->Reshape(batchsize, this->datum_channels_, outsize, outsize);
     for (int i = 0; i < this->PREFETCH_COUNT; ++i)
         this->prefetch_[i].data_.Reshape(batchsize, this->datum_channels_, outsize, outsize);
@@ -285,7 +285,7 @@ void DataHeatmapLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
 
     // Pointers to blobs' float data
     Dtype* top_data = batch->data_.mutable_cpu_data();
-    Dtype* top_label = batch->label_.mutable_cpu_data(); 
+    Dtype* top_label = batch->label_.mutable_cpu_data();
 
     cv::Mat img, img_res, img_annotation_vis, img_mean_vis, img_vis, img_res_vis, mean_img_this, seg, segTmp;
 
@@ -297,17 +297,18 @@ void DataHeatmapLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
     const int label_width = heatmap_data_param.label_width();
     const float angle_max = heatmap_data_param.angle_max();
     const bool dont_flip_first = heatmap_data_param.dont_flip_first();
+    const bool flip_joint_labels = heatmap_data_param.flip_joint_labels();
     const int multfact = heatmap_data_param.multfact();
     const bool segmentation = heatmap_data_param.segmentation();
     const int size = heatmap_data_param.cropsize();
     const int outsize = heatmap_data_param.outsize();
     const int num_aug = 1;
-    const float resizeFact = (float)outsize / (float)size;    
-    const bool random_crop = heatmap_data_param.random_crop();    
+    const float resizeFact = (float)outsize / (float)size;
+    const bool random_crop = heatmap_data_param.random_crop();
 
     // Shortcuts to global vars
     const bool sub_mean = this->sub_mean_;
-    const int channels = this->datum_channels_;    
+    const int channels = this->datum_channels_;
 
     // What coordinates should we flip when mirroring images?
     // For pose estimation with joints assumes i=0,1 are for head, and i=2,3 left wrist, i=4,5 right wrist etc
@@ -319,7 +320,7 @@ void DataHeatmapLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
     if (visualise)
     {
         cv::namedWindow("original image", cv::WINDOW_AUTOSIZE);
-        cv::namedWindow("cropped image", cv::WINDOW_AUTOSIZE);  
+        cv::namedWindow("cropped image", cv::WINDOW_AUTOSIZE);
         cv::namedWindow("interim resize image", cv::WINDOW_AUTOSIZE);
         cv::namedWindow("resulting image", cv::WINDOW_AUTOSIZE);
     }
@@ -340,7 +341,7 @@ void DataHeatmapLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
 
         std::string img_path = this->root_img_dir_ + img_name;
         LOG(INFO) << "img: " << img_path << "  class: " << cur_class;
-        img = cv::imread(img_path, CV_LOAD_IMAGE_COLOR);       
+        img = cv::imread(img_path, CV_LOAD_IMAGE_COLOR);
 
         // show image
         if (visualise)
@@ -479,16 +480,19 @@ void DataHeatmapLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
                     // "flip" annotation joint numbers
                     // assumes i=0,1 are for head, and i=2,3 left wrist, i=4,5 right wrist etc
                     // where coordinates are (x,y)
-                    float tmp_x, tmp_y;
-                    for (int i = flip_start_ind; i < label_num_channels; i += 4)
+                    if (flip_joint_labels)
                     {
-                        CHECK_LT(i+3, label_num_channels);
-                        tmp_x = cur_label_aug[i];
-                        tmp_y = cur_label_aug[i + 1];
-                        cur_label_aug[i] = cur_label_aug[i + 2];
-                        cur_label_aug[i + 1] = cur_label_aug[i + 3];
-                        cur_label_aug[i + 2] = tmp_x;
-                        cur_label_aug[i + 3] = tmp_y;
+                        float tmp_x, tmp_y;
+                        for (int i = flip_start_ind; i < label_num_channels; i += 4)
+                        {
+                            CHECK_LT(i + 3, label_num_channels);
+                            tmp_x = cur_label_aug[i];
+                            tmp_y = cur_label_aug[i + 1];
+                            cur_label_aug[i] = cur_label_aug[i + 2];
+                            cur_label_aug[i + 1] = cur_label_aug[i + 3];
+                            cur_label_aug[i + 2] = tmp_x;
+                            cur_label_aug[i + 3] = tmp_y;
+                        }
                     }
                 }
 
@@ -621,7 +625,7 @@ void DataHeatmapLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
             const int img_size = channel_size * channels;
 
             // store image data
-            DLOG(INFO) << "storing image";            
+            DLOG(INFO) << "storing image";
             for (int c = 0; c < channels; c++)
             {
                 for (int i = 0; i < outsize; i++)
@@ -658,9 +662,9 @@ void DataHeatmapLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
                             dataMatrix.at<float>((int)j, (int)i) = gaussian;
                     }
                 }
-            }       
+            }
 
-        } // jittered versions loop     
+        } // jittered versions loop
 
         DLOG(INFO) << "next image";
 

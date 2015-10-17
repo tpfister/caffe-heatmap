@@ -13,12 +13,12 @@ layer {
     batchsize: 14
     cropsize: 248
     outsize: 256
-#    multfact: 282
     sample_per_cluster: false
     random_crop: true
     label_width: 64
     label_height: 64
     segmentation: false
+    flip_joint_labels: true
     dont_flip_first: true
     angle_max: 40    
   }
@@ -36,7 +36,6 @@ layer {
     batchsize: 1
     cropsize: 248
     outsize: 256
-#    multfact: 282
     sample_per_cluster: false
     random_crop: false
     label_width: 64
@@ -556,6 +555,6 @@ layer {
   bottom: "label"
   bottom: "data"  
   top: "loss_fusion"
-  visualise: true
+  visualise: false
   loss_weight: 3
 }

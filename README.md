@@ -3,15 +3,16 @@
 This is a fork of Caffe that enables training of heatmap regressor ConvNets for the general problem of regressing (x,y) positions in images.
 
 To start training: 
-- Prepare your input images as images
+- Prepare your input images
 - Create two label files, one for training and another for testing, in the format:
 
-  train/FILE.jpg 123,144,165,123,66,22 0
+  train/FILE.jpg 123,144,165,123,66,22 372.296,720,1,480,0.53333 0
 
   This is a space-delimited file where 
   - the first arg is the path to your image
   - the second arg is a comma-delimited list of (x,y) coordinates you wish to regress
-  - the third arg is a coordinate 'cluster' (from which you have the option to evenly sample images in training). You can set this to 0.
+  - the third arg is a comma-delimited list of crops & scaling factors of the input image (in order x_left,x_right,y_left,y_right,scaling_fact). These are only used if you set a mean image for mean subtraction. You can set these to 0 o.w. 
+  - the fourth arg is a coordinate 'cluster' (from which you have the option to evenly sample images in training). You can set this to 0.
 
 - Modify file paths in models/heatmap-flic-fusion/train_val.txt 
 - Start training: sh train_heatmap.sh heatmap-flic-fusion 1
@@ -24,14 +25,22 @@ To start training:
 - visualise: show visualisations for crops, rotations etc (recommended for testing)
 - source: label file
 - root_img_dir: directory with images (recommend you store images on ramdisk)
-- cropsize: size of random crop
-- outside: size that crops are resized to
+- meanfile: proto file containing the mean image(s) to be subtracted (optional)
+- cropsize: size of random crop (randomly cropped from the original image)
+- outsize: size that crops are resized to
 - sample_per_cluster: sample evenly across clusters
 - random_crop: do random crop (if false, do center crop)
 - label_height/width: width of regressed heatmap (must match net config)
 - segmentation: segment images on the fly (assumes images are in a segs/ directory)
-- dont_flip_first: when mirroring images for augmentation, this option allows you to turn off label mirroring (e.g. if the first joint is a head)
 - angle_max: max rotation angle for training augmentation
+
+### Pose estimation-specific parameters:
+- flip_joint_labels: when horizontally flipping images for augmentation, if this is set to true the code also swaps left<->right labels (this is important e.g. for observer-centric pose estimation). This assumes that the left,right joint labelsare listed consecutively (e.g. wrist_left,wrist_right,elbow_left,elbow_right)
+- dont_flip_first: This option allows you to turn off label mirroring for the first label. E.g. for labels head,wrist_right,wrist_left,elbow_right,elbow_left,shoulder_right,shoulder_left, the first joint is head and should not be swapped with wrist_right.
+
+
+## Notes:
+- Ensure that the cropsize is set so that the crop normally covers most of the positions in the image that you wish to regress. E.g. for FLIC we prepared 256x256 cropped input images around the torso point.
 
 
 
