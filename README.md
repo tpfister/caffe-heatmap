@@ -10,8 +10,8 @@ To start training:
 
   This is a space-delimited file where 
   - the first arg is the path to your image
-  - the second arg is a comma-delimited list of (x,y) coordinates you wish to regress
-  - the third arg is a comma-delimited list of crops & scaling factors of the input image (in order x_left,x_right,y_left,y_right,scaling_fact). These are only used if you set a mean image for mean subtraction. You can set these to 0 o.w. 
+  - the second arg is a comma-delimited list of (x,y) coordinates you wish to regress (the coordinates in the train/FILE.jpg image space)
+  - the third arg is a comma-delimited list of crops & scaling factors of the input image (in order x_left,x_right,y_left,y_right,scaling_fact). Note: These crop & scaling factors are only used to crop the mean image. You can set these to 0 if you aren't using a mean image (for mean subtraction). 
   - the fourth arg is a coordinate 'cluster' (from which you have the option to evenly sample images in training). You can set this to 0.
 
 - Modify file paths in models/heatmap-flic-fusion/train_val.txt 
@@ -40,7 +40,7 @@ To start training:
 
 
 ## Notes
-- Ensure that the cropsize is set so that the crop normally covers most of the positions in the image that you wish to regress. E.g. for FLIC we prepared 256x256 cropped input images around the torso point.
+- Ensure that the cropsize is set so that the crop normally covers most of the positions in the image that you wish to regress. E.g. for FLIC we prepared 256x256 cropped input images (cropped as a bounding box around the provided torso point) and used these as input images.
 
 
 ## Pretrained models
