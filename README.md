@@ -2,6 +2,13 @@
 
 This is a fork of Caffe that enables training of heatmap regressor ConvNets for the general problem of regressing (x,y) positions in images.
 
+
+## Pretrained models
+- [Fusion model trained on FLIC](http://tomas.pfister.fi/models/caffe-heatmap-flic.caffemodel)
+
+
+## Training instructions
+
 To start training: 
 - Prepare your input images
 - Create two label files, one for training and another for testing, in the format:
@@ -18,10 +25,10 @@ To start training:
 - Start training: sh train_heatmap.sh heatmap-flic-fusion 1
 
 
-## Supported augmentations
+### Supported augmentations
 - Random crop, resize, mirror and rotation
 
-## Heatmap params
+### Heatmap params
 - visualise: show visualisations for crops, rotations etc (recommended for testing)
 - source: label file
 - root_img_dir: directory with images (recommend you store images on ramdisk)
@@ -39,12 +46,8 @@ To start training:
 - dont_flip_first: This option allows you to turn off label mirroring for the first label. E.g. for labels head,wrist_right,wrist_left,elbow_right,elbow_left,shoulder_right,shoulder_left, the first joint is head and should not be swapped with wrist_right.
 
 
-## Notes
+### Notes
 - Ensure that the cropsize is set so that the crop normally covers most of the positions in the image that you wish to regress. E.g. for FLIC we prepared 256x256 cropped input images (cropped as a bounding box around the provided torso point) and used these as input images.
-
-
-## Pretrained models
-- [Heatmap fusion model trained on FLIC](http://tomas.pfister.fi/models/caffe-heatmap-flic.caffemodel)
 
 
 ## Paper
