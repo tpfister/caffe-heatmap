@@ -6,6 +6,10 @@ This is a fork of Caffe that enables training of heatmap regressor ConvNets for 
 ## Pretrained models
 - [Fusion model trained on FLIC](http://tomas.pfister.fi/models/caffe-heatmap-flic.caffemodel)
 
+## Testing instructions
+
+matlab/pose/demo.m provides example code for running the FLIC model on a video
+
 
 ## Training instructions
 
