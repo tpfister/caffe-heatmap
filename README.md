@@ -44,7 +44,7 @@ To start training:
 
 
 ## Pretrained models
-To follow shortly.
+- [Heatmap fusion model trained on FLIC](http://tomas.pfister.fi/models/caffe-heatmap-flic.caffemodel)
 
 
 ## Paper
