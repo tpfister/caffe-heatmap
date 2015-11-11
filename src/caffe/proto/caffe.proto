@@ -609,7 +609,7 @@ message FlattenParameter {
 // VGG heatmap params
 message HeatmapDataParameter {
   optional bool segmentation = 1000 [default = false];  
-  optional uint32 multfact = 1001 [default = 0];
+  optional uint32 multfact = 1001 [default = 1];
   optional uint32 num_channels = 1002 [default = 3]; 
   optional uint32 batchsize = 1003;
   optional string root_img_dir = 1004;
