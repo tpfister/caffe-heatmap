@@ -280,7 +280,6 @@ void DataHeatmapLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
     CPUTimer batch_timer;
     batch_timer.Start();
     CHECK(batch->data_.count());
-    typedef DataHeatmapLayer<Dtype> DFSL;
     HeatmapDataParameter heatmap_data_param = this->layer_param_.heatmap_data_param();
 
     // Pointers to blobs' float data
@@ -340,7 +339,7 @@ void DataHeatmapLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
         int label_num_channels = cur_label.size();
 
         std::string img_path = this->root_img_dir_ + img_name;
-        LOG(INFO) << "img: " << img_path << "  class: " << cur_class;
+        DLOG(INFO) << "img: " << img_path;
         img = cv::imread(img_path, CV_LOAD_IMAGE_COLOR);
 
         // show image
