@@ -5,6 +5,12 @@ This is a fork of Caffe that enables training of heatmap regressor ConvNets for 
 
 ## Pretrained models
 - [Fusion model trained on FLIC](http://tomas.pfister.fi/models/caffe-heatmap-flic.caffemodel)
+- [Fusion model trained on ChaLearn](http://tomas.pfister.fi/models/caffe-heatmap-chalearn.caffemodel)
+
+## Pre-cropped images and training labels for FLIC
+- [Training](http://tomas.pfister.fi/flic_train_cropped_multfact282.tgz)
+- [Testing](http://tomas.pfister.fi/flic_test_cropped_multfact282.tgz)
+- Note these files require multfact=282 in both training and testing data layers
 
 ## Testing instructions
 
@@ -25,6 +31,8 @@ To start training:
   - the third arg is a comma-delimited list of crops & scaling factors of the input image (in order x_left,x_right,y_left,y_right,scaling_fact). Note: These crop & scaling factors are only used to crop the mean image. You can set these to 0 if you aren't using a mean image (for mean subtraction). 
   - the fourth arg is a coordinate 'cluster' (from which you have the option to evenly sample images in training). You can set this to 0.
 
+  Example pre-cropped images and label files for FLIC are provided above.
+
 - Modify file paths in models/heatmap-flic-fusion/train_val.txt 
 - Start training: sh train_heatmap.sh heatmap-flic-fusion 1
 
@@ -39,6 +47,7 @@ To start training:
 - meanfile: proto file containing the mean image(s) to be subtracted (optional)
 - cropsize: size of random crop (randomly cropped from the original image)
 - outsize: size that crops are resized to
+- multfact: label coordinates in the ground truth text file are multiplied by this (default 1)
 - sample_per_cluster: sample evenly across clusters
 - random_crop: do random crop (if false, do center crop)
 - label_height/width: width of regressed heatmap (must match net config)
