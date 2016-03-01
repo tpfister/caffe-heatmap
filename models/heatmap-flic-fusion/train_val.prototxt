@@ -21,6 +21,7 @@ layer {
     flip_joint_labels: true
     dont_flip_first: true
     angle_max: 40    
+    multfact: 1  # set to 282 if using preprocessed data from website
   }
 }
 layer {
@@ -43,6 +44,7 @@ layer {
     segmentation: false
     dont_flip_first: true
     angle_max: 0
+    multfact: 1  # set to 282 if using preprocessed data from website
   }
 }
 
