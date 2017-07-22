@@ -1,4 +1,6 @@
 # Caffe-heatmap
+I merge the latest caffe to support CUDNN 5 and 6
+
 
 This is a fork of Caffe that enables training of heatmap regressor ConvNets for the general problem of regressing (x,y) positions in images.
 
