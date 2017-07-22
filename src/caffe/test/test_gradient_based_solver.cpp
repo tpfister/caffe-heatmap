@@ -10,7 +10,7 @@
 #include "caffe/common.hpp"
 #include "caffe/parallel.hpp"
 #include "caffe/proto/caffe.pb.h"
-#include "caffe/solver.hpp"
+#include "caffe/sgd_solvers.hpp"
 #include "caffe/util/io.hpp"
 
 #include "caffe/test/test_caffe_main.hpp"
@@ -28,7 +28,7 @@ class GradientBasedSolverTest : public MultiDeviceTest<TypeParam> {
       seed_(1701), num_(4), channels_(3), height_(10), width_(10),
       share_(false) {
         input_file_ = new string(
-        CMAKE_SOURCE_DIR "caffe/test/test_data/solver_data_list.txt" CMAKE_EXT);
+        ABS_TEST_DATA_DIR "/solver_data_list.txt");
       }
   ~GradientBasedSolverTest() {
     delete input_file_;
@@ -36,7 +36,9 @@ class GradientBasedSolverTest : public MultiDeviceTest<TypeParam> {
 
   string snapshot_prefix_;
   shared_ptr<SGDSolver<Dtype> > solver_;
-  shared_ptr<P2PSync<Dtype> > sync_;
+#ifdef USE_NCCL
+  shared_ptr<NCCL<Dtype> > nccl_;
+#endif
   int seed_;
   // Dimensions are determined by generate_sample_data.py
   // TODO this is brittle and the hdf5 file should be checked instead.
@@ -47,7 +49,6 @@ class GradientBasedSolverTest : public MultiDeviceTest<TypeParam> {
   // Test data: check out generate_sample_data.py in the same directory.
   string* input_file_;
 
-  virtual SolverParameter_SolverType solver_type() = 0;
   virtual void InitSolver(const SolverParameter& param) = 0;
 
   virtual void InitSolverFromProtoString(const string& proto) {
@@ -86,6 +87,7 @@ class GradientBasedSolverTest : public MultiDeviceTest<TypeParam> {
        "lr_policy: 'fixed' "
        "iter_size: " << iter_size << " "
        "device_id: " << device_id << " "
+       "layer_wise_reduce: " << (!share_) << " "
        "net_param { "
        "  name: 'TestNetwork' "
        "  layer { "
@@ -184,11 +186,10 @@ class GradientBasedSolverTest : public MultiDeviceTest<TypeParam> {
     }
     Caffe::set_random_seed(this->seed_);
     this->InitSolverFromProtoString(proto.str());
-    if (from_snapshot != NULL) {
+    if (from_snapshot) {
       this->solver_->Restore(from_snapshot);
-      vector<Blob<Dtype>*> empty_bottom_vec;
       for (int i = 0; i < this->solver_->iter(); ++i) {
-        this->solver_->net()->Forward(empty_bottom_vec);
+        this->solver_->net()->Forward();
       }
     }
     if (devices == 1) {
@@ -204,9 +205,10 @@ class GradientBasedSolverTest : public MultiDeviceTest<TypeParam> {
           gpus.push_back(i);
       }
       Caffe::set_solver_count(gpus.size());
-      this->sync_.reset(new P2PSync<Dtype>(
-          this->solver_, NULL, this->solver_->param()));
-      this->sync_->run(gpus);
+#ifdef USE_NCCL
+      this->nccl_.reset(new NCCL<Dtype>(this->solver_));
+      this->nccl_->Run(gpus, from_snapshot);
+#endif
       Caffe::set_solver_count(1);
     }
     if (snapshot) {
@@ -232,8 +234,7 @@ class GradientBasedSolverTest : public MultiDeviceTest<TypeParam> {
     // Run a forward pass, and manually compute the update values from the
     // result.
     Net<Dtype>& net = *this->solver_->net();
-    vector<Blob<Dtype>*> empty_bottom_vec;
-    net.Forward(empty_bottom_vec);
+    net.Forward();
     ASSERT_TRUE(net.has_blob("data"));
     const Blob<Dtype>& data = *net.blob_by_name("data");
     ASSERT_TRUE(net.has_blob("targets"));
@@ -290,8 +291,8 @@ class GradientBasedSolverTest : public MultiDeviceTest<TypeParam> {
           ((i == D) ? bias.cpu_data()[0] : weights.cpu_data()[i]);
       // Finally, compute update.
       const vector<shared_ptr<Blob<Dtype> > >& history = solver_->history();
-      if (solver_type() != SolverParameter_SolverType_ADADELTA
-          && solver_type() != SolverParameter_SolverType_ADAM) {
+      if (solver_->type() != string("AdaDelta")
+          && solver_->type() != string("Adam")) {
         ASSERT_EQ(2, history.size());  // 1 blob for weights, 1 for bias
       } else {
         ASSERT_EQ(4, history.size());  // additional blobs for update history
@@ -300,26 +301,19 @@ class GradientBasedSolverTest : public MultiDeviceTest<TypeParam> {
       const Dtype history_value = (i == D) ?
             history[1]->cpu_data()[0] : history[0]->cpu_data()[i];
       const Dtype temp = momentum * history_value;
-      switch (solver_type()) {
-      case SolverParameter_SolverType_SGD:
+      if (solver_->type() == string("SGD")) {
         update_value += temp;
-        break;
-      case SolverParameter_SolverType_NESTEROV:
+      } else if (solver_->type() == string("Nesterov")) {
         update_value += temp;
         // step back then over-step
         update_value = (1 + momentum) * update_value - temp;
-        break;
-      case SolverParameter_SolverType_ADAGRAD:
+      } else if (solver_->type() == string("AdaGrad")) {
         update_value /= std::sqrt(history_value + grad * grad) + delta_;
-        break;
-      case SolverParameter_SolverType_RMSPROP: {
+      } else if (solver_->type() == string("RMSProp")) {
         const Dtype rms_decay = 0.95;
         update_value /= std::sqrt(rms_decay*history_value
             + grad * grad * (1 - rms_decay)) + delta_;
-        }
-        break;
-      case SolverParameter_SolverType_ADADELTA:
-      {
+      } else if (solver_->type() == string("AdaDelta")) {
         const Dtype update_history_value = (i == D) ?
             history[1 + num_param_blobs]->cpu_data()[0] :
             history[0 + num_param_blobs]->cpu_data()[i];
@@ -330,9 +324,7 @@ class GradientBasedSolverTest : public MultiDeviceTest<TypeParam> {
         // not actually needed, just here for illustrative purposes
         // const Dtype weighted_update_average =
         //   momentum * update_history_value + (1 - momentum) * (update_value);
-        break;
-      }
-      case SolverParameter_SolverType_ADAM: {
+      } else if (solver_->type() == string("Adam")) {
         const Dtype momentum2 = 0.999;
         const Dtype m = history_value;
         const Dtype v = (i == D) ?
@@ -344,10 +336,8 @@ class GradientBasedSolverTest : public MultiDeviceTest<TypeParam> {
             std::sqrt(Dtype(1) - pow(momentum2, num_iters)) /
             (Dtype(1.) - pow(momentum, num_iters));
         update_value = alpha_t * val_m / (std::sqrt(val_v) + delta_);
-        break;
-      }
-      default:
-        LOG(FATAL) << "Unknown solver type: " << solver_type();
+      } else {
+        LOG(FATAL) << "Unknown solver type: " << solver_->type();
       }
       if (i == D) {
         updated_bias.mutable_cpu_diff()[0] = update_value;
@@ -392,7 +382,7 @@ class GradientBasedSolverTest : public MultiDeviceTest<TypeParam> {
     EXPECT_NEAR(expected_updated_bias, solver_updated_bias, error_margin);
 
     // Check the solver's history -- should contain the previous update value.
-    if (solver_type() == SolverParameter_SolverType_SGD) {
+    if (solver_->type() == string("SGD")) {
       const vector<shared_ptr<Blob<Dtype> > >& history = solver_->history();
       ASSERT_EQ(2, history.size());
       for (int i = 0; i < D; ++i) {
@@ -471,12 +461,28 @@ class GradientBasedSolverTest : public MultiDeviceTest<TypeParam> {
     const int kIterSize = 1;
     // Test over all numbers of devices.
     int available_devices = 1;
-#ifndef CPU_ONLY
+#ifdef USE_NCCL
     if (Caffe::mode() == Caffe::GPU) {
       CUDA_CHECK(cudaGetDeviceCount(&available_devices));
     }
 #endif
-    for (int devices = 1; devices <= available_devices; ++devices) {
+    // Takes a while to test all sizes for each test so sparse
+    vector<int> sizes;
+    sizes.push_back(1);
+    if (available_devices >= 2) {
+      sizes.push_back(2);
+    }
+    if (available_devices >= 3) {
+      sizes.push_back(3);
+    }
+    if (available_devices >= 8) {
+      sizes.push_back(8);
+    }
+    if (available_devices >= 16) {
+      sizes.push_back(16);
+    }
+    for (int i = 0; i < sizes.size(); ++i) {
+      int devices = sizes[i];
       // Configure batch size for single / multi device equivalence.
       // Constant data is needed for multi device as for accumulation.
       num_ = kNum * devices;
@@ -552,9 +558,11 @@ class GradientBasedSolverTest : public MultiDeviceTest<TypeParam> {
     const vector<Blob<Dtype>*>& params = solver_->net()->learnable_params();
     for (int i = 0; i < params.size(); ++i) {
       for (int j = 0; j < params[i]->count(); ++j) {
-        EXPECT_EQ(param_copies[i]->cpu_data()[j], params[i]->cpu_data()[j])
+        EXPECT_FLOAT_EQ(param_copies[i]->cpu_data()[j],
+            params[i]->cpu_data()[j])
             << "param " << i << " data differed at dim " << j;
-        EXPECT_EQ(param_copies[i]->cpu_diff()[j], params[i]->cpu_diff()[j])
+        EXPECT_FLOAT_EQ(param_copies[i]->cpu_diff()[j],
+            params[i]->cpu_diff()[j])
             << "param " << i << " diff differed at dim " << j;
       }
     }
@@ -563,9 +571,11 @@ class GradientBasedSolverTest : public MultiDeviceTest<TypeParam> {
     const vector<shared_ptr<Blob<Dtype> > >& history = solver_->history();
     for (int i = 0; i < history.size(); ++i) {
       for (int j = 0; j < history[i]->count(); ++j) {
-        EXPECT_EQ(history_copies[i]->cpu_data()[j], history[i]->cpu_data()[j])
+        EXPECT_FLOAT_EQ(history_copies[i]->cpu_data()[j],
+            history[i]->cpu_data()[j])
             << "history blob " << i << " data differed at dim " << j;
-        EXPECT_EQ(history_copies[i]->cpu_diff()[j], history[i]->cpu_diff()[j])
+        EXPECT_FLOAT_EQ(history_copies[i]->cpu_diff()[j],
+            history[i]->cpu_diff()[j])
             << "history blob " << i << " diff differed at dim " << j;
       }
     }
@@ -580,10 +590,6 @@ class SGDSolverTest : public GradientBasedSolverTest<TypeParam> {
  protected:
   virtual void InitSolver(const SolverParameter& param) {
     this->solver_.reset(new SGDSolver<Dtype>(param));
-  }
-
-  virtual SolverParameter_SolverType solver_type() {
-    return SolverParameter_SolverType_SGD;
   }
 };
 
@@ -721,9 +727,6 @@ class AdaGradSolverTest : public GradientBasedSolverTest<TypeParam> {
   virtual void InitSolver(const SolverParameter& param) {
     this->solver_.reset(new AdaGradSolver<Dtype>(param));
   }
-  virtual SolverParameter_SolverType solver_type() {
-    return SolverParameter_SolverType_ADAGRAD;
-  }
 };
 
 TYPED_TEST_CASE(AdaGradSolverTest, TestDtypesAndDevices);
@@ -823,9 +826,6 @@ class NesterovSolverTest : public GradientBasedSolverTest<TypeParam> {
  protected:
   virtual void InitSolver(const SolverParameter& param) {
     this->solver_.reset(new NesterovSolver<Dtype>(param));
-  }
-  virtual SolverParameter_SolverType solver_type() {
-    return SolverParameter_SolverType_NESTEROV;
   }
 };
 
@@ -959,10 +959,6 @@ class AdaDeltaSolverTest : public GradientBasedSolverTest<TypeParam> {
  protected:
   virtual void InitSolver(const SolverParameter& param) {
     this->solver_.reset(new AdaDeltaSolver<Dtype>(param));
-  }
-
-  virtual SolverParameter_SolverType solver_type() {
-    return SolverParameter_SolverType_ADADELTA;
   }
 };
 
@@ -1098,9 +1094,6 @@ class AdamSolverTest : public GradientBasedSolverTest<TypeParam> {
     new_param.set_momentum2(momentum2);
     this->solver_.reset(new AdamSolver<Dtype>(new_param));
   }
-  virtual SolverParameter_SolverType solver_type() {
-    return SolverParameter_SolverType_ADAM;
-  }
 };
 
 TYPED_TEST_CASE(AdamSolverTest, TestDtypesAndDevices);
@@ -1200,9 +1193,6 @@ class RMSPropSolverTest : public GradientBasedSolverTest<TypeParam> {
     SolverParameter new_param = param;
     new_param.set_rms_decay(rms_decay);
     this->solver_.reset(new RMSPropSolver<Dtype>(new_param));
-  }
-  virtual SolverParameter_SolverType solver_type() {
-    return SolverParameter_SolverType_RMSPROP;
   }
 };
 
