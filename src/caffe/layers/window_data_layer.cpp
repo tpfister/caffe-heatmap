@@ -1,3 +1,4 @@
+#ifdef USE_OPENCV
 #include <opencv2/highgui/highgui_c.h>
 #include <stdint.h>
 
@@ -11,9 +12,10 @@
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 
-#include "caffe/common.hpp"
-#include "caffe/data_layers.hpp"
-#include "caffe/layer.hpp"
+#include "caffe/data_transformer.hpp"
+#include "caffe/internal_thread.hpp"
+#include "caffe/layers/base_data_layer.hpp"
+#include "caffe/layers/window_data_layer.hpp"
 #include "caffe/util/benchmark.hpp"
 #include "caffe/util/io.hpp"
 #include "caffe/util/math_functions.hpp"
@@ -171,8 +173,8 @@ void WindowDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   CHECK_GT(crop_size, 0);
   const int batch_size = this->layer_param_.window_data_param().batch_size();
   top[0]->Reshape(batch_size, channels, crop_size, crop_size);
-  for (int i = 0; i < this->PREFETCH_COUNT; ++i)
-    this->prefetch_[i].data_.Reshape(
+  for (int i = 0; i < this->prefetch_.size(); ++i)
+    this->prefetch_[i]->data_.Reshape(
         batch_size, channels, crop_size, crop_size);
 
   LOG(INFO) << "output data size: " << top[0]->num() << ","
@@ -181,8 +183,8 @@ void WindowDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   // label
   vector<int> label_shape(1, batch_size);
   top[1]->Reshape(label_shape);
-  for (int i = 0; i < this->PREFETCH_COUNT; ++i) {
-    this->prefetch_[i].label_.Reshape(label_shape);
+  for (int i = 0; i < this->prefetch_.size(); ++i) {
+    this->prefetch_[i]->label_.Reshape(label_shape);
   }
 
   // data mean
@@ -263,6 +265,9 @@ void WindowDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
   const int num_samples[2] = { batch_size - num_fg, num_fg };
 
   int item_id = 0;
+  CHECK_GT(fg_windows_.size(), 0);
+  CHECK_GT(bg_windows_.size(), 0);
+
   // sample from bg set then fg set
   for (int is_fg = 0; is_fg < 2; ++is_fg) {
     for (int dummy = 0; dummy < num_samples[is_fg]; ++dummy) {
@@ -468,3 +473,4 @@ INSTANTIATE_CLASS(WindowDataLayer);
 REGISTER_LAYER_CLASS(WindowData);
 
 }  // namespace caffe
+#endif  // USE_OPENCV

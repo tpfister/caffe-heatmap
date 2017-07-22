@@ -6,8 +6,9 @@
 #include <utility>
 #include <vector>
 
-#include "caffe/data_layers.hpp"
+
 #include "caffe/layer.hpp"
+#include "caffe/layers/base_data_layer.hpp"
 #include "caffe/util/io.hpp"
 #include "caffe/util/math_functions.hpp"
 #include "caffe/util/rng.hpp"
@@ -244,8 +245,8 @@ void DataHeatmapLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
     // init data
     this->transformed_data_.Reshape(batchsize, this->datum_channels_, outsize, outsize);
     top[0]->Reshape(batchsize, this->datum_channels_, outsize, outsize);
-    for (int i = 0; i < this->PREFETCH_COUNT; ++i)
-        this->prefetch_[i].data_.Reshape(batchsize, this->datum_channels_, outsize, outsize);
+    for (int i = 0; i < this->prefetch_.size(); ++i)
+        this->prefetch_[i]->data_.Reshape(batchsize, this->datum_channels_, outsize, outsize);
     this->datum_size_ = this->datum_channels_ * outsize * outsize;
 
     // init label
@@ -256,8 +257,8 @@ void DataHeatmapLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
         label_num_channels = img_list_[0][0].second.first.size();
     label_num_channels /= 2;
     top[1]->Reshape(label_batchsize, label_num_channels, label_height, label_width);
-    for (int i = 0; i < this->PREFETCH_COUNT; ++i)
-        this->prefetch_[i].label_.Reshape(label_batchsize, label_num_channels, label_height, label_width);
+    for (int i = 0; i < this->prefetch_.size(); ++i)
+        this->prefetch_[i]->label_.Reshape(label_batchsize, label_num_channels, label_height, label_width);
 
     LOG(INFO) << "output data size: " << top[0]->num() << "," << top[0]->channels() << "," << top[0]->height() << "," << top[0]->width();
     LOG(INFO) << "output label size: " << top[1]->num() << "," << top[1]->channels() << "," << top[1]->height() << "," << top[1]->width();
